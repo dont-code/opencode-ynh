@@ -1,0 +1,10 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/main/schemas/tests.v1.schema.json
+
+test_format = 1.0
+
+[default]
+
+    # The CI derives the standard install tests from the manifest. This app
+    # needs network access to fetch the latest OpenCode release and, in proxy
+    # mode, to create an OpenTunnel route.
+    # Keep the default arguments supplied by the manifest.

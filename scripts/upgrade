@@ -1,0 +1,25 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Upgrading OpenCode..."
+ynh_app_setting_set --key=vpn_bind_address --value="${vpn_bind_address:-}"
+ynh_systemctl --service="$app" --action="stop" || true
+
+# The official installer always resolves the current upstream release.
+install_opencode_binary
+configure_opencode_providers "${external_provider:-}" "${external_api_key:-}"
+
+ynh_config_add_systemd
+if [ "$exposure" = "web" ]; then
+    ynh_config_add_nginx
+fi
+register_yunohost_service
+
+ynh_script_progression "Restarting OpenCode..."
+ynh_systemctl --service="$app" --action="start"
+
+register_remote_url
+
+ynh_script_progression "Upgrade of $app completed"

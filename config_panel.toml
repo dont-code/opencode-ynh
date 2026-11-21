@@ -1,0 +1,146 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/main/schemas/config_panel.v1.schema.json
+version = "1.0"
+
+[providers]
+name.en = "Providers"
+name.fr = "Fournisseurs"
+help.en = "Inspect and refresh the model providers generated for OpenCode."
+help.fr = "Consultez et actualisez les fournisseurs de modèles générés pour OpenCode."
+
+    [providers.status]
+    name.en = "Current provider configuration"
+    name.fr = "Configuration actuelle des fournisseurs"
+    help.en = "Shows whether the YunoHost Ollama app was detected and whether its generated OpenCode config is up to date."
+    help.fr = "Indique si l'application YunoHost Ollama a été détectée et si sa configuration OpenCode générée est à jour."
+    optional = true
+
+        [providers.status.provider_status]
+        type = "alert"
+        ask.en = "Provider status"
+        ask.fr = "État des fournisseurs"
+        bind = "null"
+
+    [providers.actions]
+    name.en = "Refresh providers"
+    name.fr = "Actualiser les fournisseurs"
+    optional = true
+
+        [providers.actions.refresh_providers]
+        type = "button"
+        ask.en = "Re-detect local providers"
+        ask.fr = "Redétecter les fournisseurs locaux"
+        help.en = "Re-detect the YunoHost Ollama app and rewrite the generated provider config, then restart OpenCode. The selected external provider and its key are preserved."
+        help.fr = "Redétecte l'application YunoHost Ollama, réécrit la configuration générée puis redémarre OpenCode. Le fournisseur externe sélectionné et sa clé sont conservés."
+        style = "info"
+        bind = "null"
+
+    [providers.external]
+    name.en = "External provider"
+    name.fr = "Fournisseur externe"
+    help.en = "Add or replace an external API provider alongside the local Ollama models. Changes take effect after applying and restarting OpenCode."
+    help.fr = "Ajoutez ou remplacez un fournisseur API externe en plus des modèles Ollama locaux. Les changements prennent effet après application et redémarrage d'OpenCode."
+    optional = true
+
+        [providers.external.external_provider]
+        ask.en = "External provider"
+        ask.fr = "Fournisseur externe"
+        type = "select"
+        choices.none = "None (local models only)"
+        choices.openai = "OpenAI"
+        choices.anthropic = "Anthropic"
+        choices.mistral = "Mistral"
+        bind = "null"
+
+        [providers.external.external_api_key]
+        ask.en = "API key"
+        ask.fr = "Clé API"
+        help.en = "Leave empty to keep the currently stored key, or paste a new key. Required when an external provider is selected."
+        help.fr = "Laissez vide pour conserver la clé actuelle, ou collez une nouvelle clé. Requise lorsqu'un fournisseur externe est sélectionné."
+        type = "password"
+        visible = "external_provider != 'none'"
+        bind = "null"
+
+        [providers.external.apply_providers]
+        type = "button"
+        ask.en = "Apply provider change"
+        ask.fr = "Appliquer le changement de fournisseur"
+        help.en = "Rewrite the generated OpenCode config and restart the service."
+        help.fr = "Réécrit la configuration OpenCode générée et redémarre le service."
+        style = "success"
+        enabled = "external_provider"
+        bind = "null"
+
+[remote_access]
+name.en = "Remote access"
+name.fr = "Accès distant"
+help.en = "Change how OpenCode is exposed without reinstalling the app."
+help.fr = "Modifiez l'exposition d'OpenCode sans réinstaller l'application."
+
+    [remote_access.status]
+    name.en = "Current access"
+    name.fr = "Accès actuel"
+    help.en = "Current exposure mode and the address to use for pairing."
+    help.fr = "Mode d'exposition actuel et adresse à utiliser pour l'appairage."
+    optional = true
+
+        [remote_access.status.remote_status]
+        type = "alert"
+        ask.en = "Remote access status"
+        ask.fr = "État de l'accès distant"
+        bind = "null"
+
+    [remote_access.settings]
+    name.en = "Change exposure"
+    name.fr = "Modifier l'exposition"
+    help.en = "Web uses the YunoHost reverse proxy and SSO. Proxy uses the encrypted OpenTunnel. VPN binds to a private address only."
+    help.fr = "Web utilise le proxy inverse et le SSO YunoHost. Proxy utilise OpenTunnel chiffré. VPN n'écoute que sur une adresse privée."
+    optional = true
+
+        [remote_access.settings.exposure]
+        ask.en = "Exposure mode"
+        ask.fr = "Mode d'exposition"
+        type = "select"
+        choices.web = "Web interface (YunoHost domain + SSO)"
+        choices.proxy = "Encrypted proxy (OpenTunnel)"
+        choices.vpn = "Secure VPN / localhost only"
+        bind = "null"
+
+        [remote_access.settings.domain]
+        ask.en = "YunoHost domain (web mode)"
+        ask.fr = "Domaine YunoHost (mode web)"
+        type = "domain"
+        visible = "exposure == 'web'"
+        bind = "null"
+
+        [remote_access.settings.path]
+        ask.en = "Path (web mode)"
+        ask.fr = "Chemin (mode web)"
+        type = "path"
+        visible = "exposure == 'web'"
+        bind = "null"
+
+        [remote_access.settings.web_access_group]
+        ask.en = "Allowed group (web mode)"
+        ask.fr = "Groupe autorisé (mode web)"
+        type = "group"
+        visible = "exposure == 'web'"
+        bind = "null"
+
+        [remote_access.settings.vpn_bind_address]
+        ask.en = "VPN bind address (vpn mode)"
+        ask.fr = "Adresse d'écoute VPN (mode vpn)"
+        help.en = "Leave empty for 127.0.0.1, or enter this server's VPN IP. Wildcard addresses such as 0.0.0.0 are rejected."
+        help.fr = "Laissez vide pour 127.0.0.1, ou saisissez l'IP VPN de ce serveur. Les adresses génériques comme 0.0.0.0 sont refusées."
+        type = "string"
+        visible = "exposure == 'vpn'"
+        bind = "null"
+
+        [remote_access.settings.apply_remote_access]
+        type = "button"
+        ask.en = "Apply remote access change"
+        ask.fr = "Appliquer le changement d'accès distant"
+        help.en = "Restart OpenCode with the selected exposure. Pairing links from the previous mode become invalid."
+        help.fr = "Redémarre OpenCode avec l'exposition choisie. Les liens d'appairage du mode précédent deviennent invalides."
+        style = "success"
+        enabled = "exposure"
+        bind = "null"

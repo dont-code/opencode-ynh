@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Keep this path for calling _common.sh inside the execution's context of restore scripts
+source ../settings/scripts/_common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Restoring OpenCode data..."
+ynh_systemctl --service="$app" --action="stop" || true
+
+ynh_restore "$data_dir/.config" || true
+ynh_restore "$data_dir/.local/share/opencode" || true
+ynh_restore "$data_dir/.local/state/opencode" || true
+chown -R "$app:$app" "$data_dir"
+
+# The binary is not part of the backup; fetch the current release if needed.
+if [ ! -x "$(opencode_bin_path)" ]; then
+    install_opencode_binary
+fi
+configure_opencode_providers "${external_provider:-}" "${external_api_key:-}"
+
+ynh_restore "/etc/systemd/system/$app.service" || true
+if [ "$exposure" = "web" ]; then
+    ynh_restore "/etc/nginx/conf.d/$domain.d/$app.conf" || true
+fi
+
+# Regenerate the configuration from the package templates so it matches the
+# current package version and saved settings.
+install_system_unit
+if [ "$exposure" = "web" ]; then
+    ynh_config_add_nginx
+    ynh_permission_create --permission=main --url=/ --allowed="$web_access_group" --auth_header=false \
+        || ynh_permission_update --permission=main --add="$web_access_group"
+fi
+register_yunohost_service
+
+ynh_systemctl --service="$app" --action="start"
+register_remote_url
+
+ynh_script_progression "Restoration of $app completed"

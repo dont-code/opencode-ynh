@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Keep this path for calling _common.sh inside the execution's context of backup scripts
+source ../settings/scripts/_common.sh
+source /usr/share/yunohost/helpers
+
+ynh_print_info "Declaring files to be backed up..."
+
+# Back up OpenCode's configuration, sessions database and service registration.
+# The downloaded binary under $data_dir/.opencode/bin is intentionally not
+# backed up: it is re-downloaded by install_opencode_binary on restore.
+ynh_backup "$data_dir/.config"
+ynh_backup "$data_dir/.local/share/opencode"
+ynh_backup "$data_dir/.local/state/opencode"
+
+ynh_backup "/etc/systemd/system/$app.service"
+if [ "$exposure" = "web" ]; then
+    ynh_backup "/etc/nginx/conf.d/$domain.d/$app.conf"
+fi
+
+ynh_print_info "Backup declaration completed for $app."

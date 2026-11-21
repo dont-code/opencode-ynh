@@ -1,0 +1,35 @@
+[Unit]
+Description=OpenCode AI coding agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__APP__
+Group=__APP__
+WorkingDirectory=__DATA_DIR__
+Environment=HOME=__DATA_DIR__
+Environment=XDG_CONFIG_HOME=__DATA_DIR__/.config
+Environment=XDG_DATA_HOME=__DATA_DIR__/.local/share
+Environment=XDG_STATE_HOME=__DATA_DIR__/.local/state
+Environment=XDG_CACHE_HOME=__DATA_DIR__/.cache
+Environment=OPENCODE_CONFIG=__DATA_DIR__/.config/opencode/ynh-ollama.json
+Environment=PATH=__DATA_DIR__/.opencode/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=__DATA_DIR__/.opencode/bin/opencode serve --service --hostname __BIND_ADDRESS__ --port __PORT__
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+StandardOutput=append:/var/log/__APP__/__APP__.log
+StandardError=inherit
+
+# Modest hardening. OpenCode legitimately spawns shells and edits files in
+# project directories, so aggressive syscall filtering is deliberately omitted.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

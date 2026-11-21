@@ -1,0 +1,28 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_app_setting_set --key=installer_url --value="$OPENCODE_INSTALL_URL"
+# Make every config-panel value readable on the first run, even when the admin
+# left an optional answer empty.
+ynh_app_setting_set --key=vpn_bind_address --value="${vpn_bind_address:-}"
+
+install_opencode_binary
+configure_opencode_providers "${external_provider:-}" "${external_api_key:-}"
+configure_opencode_service
+install_system_unit
+register_yunohost_service
+
+if [ "$exposure" = "web" ]; then
+    ynh_script_progression "Configuring the nginx reverse proxy..."
+    ynh_config_add_nginx
+    ynh_permission_create --permission=main --url=/ --allowed="$web_access_group" --auth_header=false
+fi
+
+ynh_script_progression "Starting OpenCode..."
+ynh_systemctl --service="$app" --action="start"
+
+register_remote_url
+
+ynh_script_progression "Installation of $app completed"

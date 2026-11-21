@@ -1,0 +1,24 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Stopping OpenCode..."
+ynh_systemctl --service="$app" --action="stop" || true
+
+# Disable the tunnel if it was enabled, so no route is left behind.
+if opencode_bin_path >/dev/null 2>&1 && [ -x "$(opencode_bin_path)" ]; then
+    opencode_cli service set remote false >/dev/null 2>&1 || true
+    opencode_cli service stop >/dev/null 2>&1 || true
+fi
+
+ynh_script_progression "Removing system configurations related to $app..."
+
+if ynh_hide_warnings yunohost service status "$app" >/dev/null; then
+    yunohost service remove "$app"
+fi
+ynh_config_remove_systemd
+ynh_config_remove_nginx
+ynh_safe_rm "/var/log/$app"
+
+ynh_script_progression "Removal of $app completed"

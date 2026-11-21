@@ -1,0 +1,172 @@
+#!/bin/bash
+# YunoHost config panel controller.
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_abort_if_errors
+
+# Keep progression bars sane when a sourced helper emits several steps.
+max_progression=6
+
+app_setting_or_empty() {
+    ynh_app_setting_get --key="$1" 2>/dev/null || true
+}
+
+# Print a JSON-quoted string, which is also valid YAML for config panel getters.
+yaml_string() {
+    printf '%s' "${1:-}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))'
+}
+
+yaml_alert() {
+    printf 'style: %s\nask: %s\n' "$1" "$(yaml_string "$2")"
+}
+
+get__provider_status() {
+    local ollama_app configured_app base_url ext_provider ext_label
+    local local_part ext_part style="success" message
+    ollama_app=$(find_installed_ollama_app || true)
+    configured_app=$(app_setting_or_empty ollama_app)
+    base_url=$(app_setting_or_empty ollama_base_url)
+    ext_provider=$(app_setting_or_empty external_provider)
+    [ -n "$ext_provider" ] || ext_provider="none"
+    ext_label=$(external_provider_label "$ext_provider")
+
+    if [ -n "$ollama_app" ]; then
+        if [ "$configured_app" = "$ollama_app" ] && [ -n "$base_url" ]; then
+            local_part="Local Ollama configured: $ollama_app at $base_url."
+        else
+            local_part="Local Ollama app '$ollama_app' was found, but the generated config is not up to date. Use 'Re-detect local providers'."
+            style="info"
+        fi
+    else
+        local_part="No local Ollama app detected."
+    fi
+
+    if [ "$ext_provider" = "none" ]; then
+        ext_part="No external provider configured."
+    else
+        ext_part="External provider configured: $ext_label."
+    fi
+
+    message="$local_part $ext_part"
+    yaml_alert "$style" "$message"
+}
+
+get__external_provider() {
+    local value="${external_provider:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty external_provider)
+    printf '%s\n' "${value:-none}"
+}
+
+get__remote_status() {
+    local current_exposure current_domain current_path bind port remote_url style message
+    current_exposure=$(app_setting_or_empty exposure)
+    current_domain=$(app_setting_or_empty domain)
+    current_path=$(app_setting_or_empty path)
+    bind=$(app_setting_or_empty bind_address)
+    port=$(app_setting_or_empty port)
+    remote_url=$(app_setting_or_empty remote_url)
+    [ -n "$current_exposure" ] || current_exposure="web"
+    [ -n "$current_path" ] || current_path="/"
+
+    case "$current_exposure" in
+        web)
+            style="success"
+            message="Web interface: https://${current_domain}${current_path} (YunoHost SSO)."
+            ;;
+        proxy)
+            style="success"
+            if [ -n "$remote_url" ]; then
+                message="Encrypted OpenTunnel: $remote_url"
+            else
+                message="Encrypted OpenTunnel is enabled, but its URL was not recorded yet. Run 'opencode service status' as the app user."
+            fi
+            ;;
+        vpn)
+            style="info"
+            message="Private service only: ${bind:-127.0.0.1}:${port:-49374}. Reach it over WireGuard or an SSH tunnel."
+            ;;
+        *)
+            style="info"
+            message="Unknown exposure mode: $current_exposure"
+            ;;
+    esac
+
+    yaml_alert "$style" "$message"
+}
+
+get__exposure() {
+    local value="${exposure:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty exposure)
+    printf '%s\n' "${value:-web}"
+}
+
+get__domain() {
+    local value="${domain:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty domain)
+    printf '%s\n' "$value"
+}
+
+get__path() {
+    local value="${path:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty path)
+    printf '%s\n' "${value:-/}"
+}
+
+get__web_access_group() {
+    local value="${web_access_group:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty web_access_group)
+    printf '%s\n' "${value:-all_users}"
+}
+
+get__vpn_bind_address() {
+    local value="${vpn_bind_address:-}"
+    [ -n "$value" ] || value=$(app_setting_or_empty vpn_bind_address)
+    printf '%s\n' "$value"
+}
+
+run__refresh_providers() {
+    ynh_script_progression "Re-detecting OpenCode providers..."
+    # No arguments: the function preserves the stored external provider and key.
+    configure_opencode_providers
+    if systemctl is-active --quiet "$app"; then
+        ynh_script_progression "Restarting OpenCode with the refreshed providers..."
+        ynh_systemctl --service="$app" --action="restart"
+    fi
+    ynh_print_info "Provider configuration refreshed. Check the Providers tab for the result."
+}
+
+run__apply_providers() {
+    local provider key
+    provider="${external_provider:-}"
+    if [ -z "$provider" ]; then
+        provider=$(app_setting_or_empty external_provider)
+        [ -n "$provider" ] || provider="none"
+    fi
+
+    key="${external_api_key:-}"
+    # An empty key field means "keep the existing key".
+    if [ -z "$key" ]; then
+        key=$(app_setting_or_empty external_api_key)
+    fi
+
+    ynh_script_progression "Applying OpenCode provider configuration..."
+    configure_opencode_providers "$provider" "$key"
+    if systemctl is-active --quiet "$app"; then
+        ynh_script_progression "Restarting OpenCode with the new providers..."
+        ynh_systemctl --service="$app" --action="restart"
+    fi
+    ynh_print_info "Provider configuration applied. Check the Providers tab for the result."
+}
+
+run__apply_remote_access() {
+    apply_remote_access_mode \
+        "${exposure:-}" \
+        "${domain:-}" \
+        "${path:-}" \
+        "${web_access_group:-}" \
+        "${vpn_bind_address:-}"
+}
+
+ynh_app_config_run "$1"

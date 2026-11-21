@@ -1,0 +1,83 @@
+#:schema https://raw.githubusercontent.com/YunoHost/apps/main/schemas/manifest.v2.schema.json
+
+packaging_format = 2
+id = "opencode"
+name = "OpenCode"
+description.en = "Self-host the OpenCode AI coding agent with web, encrypted tunnel or VPN access, and optional local Ollama."
+version = "2.3.2~ynh4"
+maintainers = ["papou"]
+
+[upstream]
+license = "MIT"
+website = "https://opencode.ai/"
+admindoc = "https://opencode.ai/docs/"
+userdoc = "https://opencode.ai/docs/cli/"
+code = "https://github.com/anomalyco/opencode"
+
+[integration]
+yunohost = ">= 12.1"
+helpers_version = "2.1"
+architectures = ["amd64", "arm64"]
+multi_instance = true
+ldap = "not_relevant"
+sso = "not_relevant"
+disk = "600M"
+ram.build = "200M"
+ram.runtime = "600M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.path]
+    type = "path"
+    default = "/"
+
+    [install.exposure]
+    ask.en = "How should OpenCode be reachable?"
+    help.en = "Web uses the YunoHost nginx reverse proxy and SSO. Proxy uses OpenCode's end-to-end encrypted OpenTunnel. VPN keeps the service bound to a private address only."
+    type = "select"
+    choices.web = "Web interface (YunoHost domain + SSO)"
+    choices.proxy = "Encrypted proxy (OpenTunnel)"
+    choices.vpn = "Secure VPN / localhost only"
+    default = "web"
+
+    [install.web_access_group]
+    ask.en = "Who may open the web interface?"
+    help.en = "Only used when the Web interface exposure is selected."
+    type = "group"
+    default = "all_users"
+
+    [install.vpn_bind_address]
+    ask.en = "VPN bind address (optional)"
+    help.en = "Only used in VPN mode. Leave empty for 127.0.0.1 (reachable over an SSH tunnel). Enter this server's VPN IP, for example 10.10.10.1, to listen on the VPN interface."
+    type = "string"
+    optional = true
+
+    [install.external_provider]
+    ask.en = "Configure an external AI provider?"
+    help.en = "Optionally add an external provider (OpenAI, Anthropic or Mistral) alongside the local Ollama models detected on this server."
+    type = "select"
+    choices.none = "None (local models only)"
+    choices.openai = "OpenAI"
+    choices.anthropic = "Anthropic"
+    choices.mistral = "Mistral"
+    default = "none"
+
+    [install.external_api_key]
+    ask.en = "API key for the external provider"
+    help.en = "Required when an external provider is selected. Leave empty if you chose None. The key is stored privately in the app settings and written to OpenCode's generated config."
+    type = "string"
+    optional = true
+
+[resources]
+    [resources.apt]
+    packages = ["curl", "ca-certificates", "tar"]
+
+    [resources.system_user]
+    home = "/home/yunohost.app/__APP__"
+
+    [resources.data_dir]
+
+    [resources.ports]
+    main.default = 49374
