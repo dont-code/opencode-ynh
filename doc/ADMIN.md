@@ -81,7 +81,7 @@ provider/API key at any time. The equivalent CLI commands are:
 ```bash
 sudo yunohost app action run __APP__ providers.actions.refresh_providers
 sudo yunohost app action run __APP__ providers.external.apply_providers \
-  --args "external_provider=openai" --args "external_api_key=sk-..."
+  --args "external_provider=openai" --args "external_api_key=YOUR_API_KEY"
 ```
 
 The generated file is loaded via `OPENCODE_CONFIG`, so any `opencode.json` or
