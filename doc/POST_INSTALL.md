@@ -3,16 +3,8 @@ OpenCode is installed. Selected exposure: **__EXPOSURE__**.
 ### If you chose `web`
 
 Open https://__DOMAIN____PATH__ and sign in with a YunoHost account allowed
-by the `__APP__` permission. Then, on the server, generate a one-time pairing
-link for the browser:
-
-```bash
-sudo -u __APP__ env HOME=__DATA_DIR__ \
-  XDG_CONFIG_HOME=__DATA_DIR__/.config \
-  XDG_DATA_HOME=__DATA_DIR__/.local/share \
-  XDG_STATE_HOME=__DATA_DIR__/.local/state \
-  __DATA_DIR__/.opencode/bin/opencode pair --url https://__DOMAIN____PATH__
-```
+by the `__APP__` permission. No pairing link is needed: the web UI is already
+connected to this server's local OpenCode service through the reverse proxy.
 
 ### If you chose `proxy`
 

@@ -160,6 +160,25 @@ run__apply_providers() {
     ynh_print_info "Provider configuration applied. Check the Providers tab for the result."
 }
 
+run__rotate_service_password() {
+    local password
+    password=$(ynh_string_random --length=48)
+
+    ynh_script_progression "Rotating the OpenCode service password..."
+    opencode_cli service set password "$password"
+    ynh_app_setting_set --key=service_password --value="$password"
+    service_password="$password"
+
+    if [ "${exposure:-}" = "web" ]; then
+        prepare_opencode_web_auth
+        ynh_config_add_nginx
+    fi
+
+    ynh_script_progression "Restarting OpenCode..."
+    ynh_systemctl --service="$app" --action="restart"
+    ynh_print_info "Service password rotated. Web users keep their YunoHost SSO session; paired clients must pair again."
+}
+
 run__apply_remote_access() {
     apply_remote_access_mode \
         "${exposure:-}" \
