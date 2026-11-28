@@ -6,6 +6,8 @@ source /usr/share/yunohost/helpers
 
 ynh_abort_if_errors
 
+normalize_exposure
+
 # Keep progression bars sane when a sourced helper emits several steps.
 max_progression=6
 
@@ -75,12 +77,12 @@ get__remote_status() {
             style="success"
             message="Web interface: https://${current_domain}${current_path} (YunoHost SSO)."
             ;;
-        proxy)
+        opentunnel)
             style="success"
             if [ -n "$remote_url" ]; then
                 message="Encrypted OpenTunnel: $remote_url"
             else
-                message="Encrypted OpenTunnel is enabled, but its URL was not recorded yet. Run 'opencode service status' as the app user."
+                message="Encrypted OpenTunnel is enabled, but its URL was not recorded yet. Press 'Pair OpenTunnel' below."
             fi
             ;;
         vpn)
@@ -96,22 +98,61 @@ get__remote_status() {
     yaml_alert "$style" "$message"
 }
 
+get__remote_pairing_result() {
+    local current_exposure link qr created age remote_url message
+
+    # Custom getters return YAML attributes that override the option declared in
+    # config_panel.toml. For markdown fields the dynamic text belongs in `ask`.
+
+    current_exposure=$(app_setting_or_empty exposure)
+    [ "$current_exposure" != "proxy" ] || current_exposure="opentunnel"
+    if [ "$current_exposure" != "opentunnel" ]; then
+        printf 'ask: %s\n' "$(yaml_string "Switch to the OpenTunnel exposure to generate a pairing link.")"
+        return
+    fi
+
+    link=$(app_setting_or_empty remote_pairing_url)
+    if [ -z "$link" ]; then
+        printf 'ask: %s\n' "$(yaml_string "No pairing link yet. Press **Pair OpenTunnel** to create one.")"
+        return
+    fi
+
+    qr=$(app_setting_or_empty remote_pairing_qr)
+    created=$(app_setting_or_empty remote_pairing_created_at)
+    remote_url=$(app_setting_or_empty remote_url)
+    age=""
+    if [[ "$created" =~ ^[0-9]+$ ]]; then
+        age=$(( $(date +%s) - created ))
+    fi
+
+    message=$(cat <<EOF
+**One-time OpenTunnel pairing link**
+
+[Open link to connect]($link)
+
+EOF
+)
+    if [ -n "$remote_url" ]; then
+        message+="Tunnel address: ${remote_url}"$'\n\n'
+    fi
+    if [ -n "$age" ] && [ "$age" -gt 300 ]; then
+        message+=$'> This link was generated more than 5 minutes ago and has probably expired. Press the button again.\n\n'
+    fi
+    if [ -n "$qr" ]; then
+        message+=$'Or scan this QR code with the OpenCode app:\n\n'
+        message+='![OpenTunnel pairing QR](data:image/svg+xml;base64,'"$qr"$')\n'
+    else
+        message+=$'QR rendering is unavailable on this server.\n'
+    fi
+
+    printf 'ask: %s\n' "$(yaml_string "$message")"
+}
+
 get__exposure() {
     local value="${exposure:-}"
     [ -n "$value" ] || value=$(app_setting_or_empty exposure)
+    [ "$value" != "proxy" ] || value="opentunnel"
     printf '%s\n' "${value:-web}"
-}
-
-get__domain() {
-    local value="${domain:-}"
-    [ -n "$value" ] || value=$(app_setting_or_empty domain)
-    printf '%s\n' "$value"
-}
-
-get__path() {
-    local value="${path:-}"
-    [ -n "$value" ] || value=$(app_setting_or_empty path)
-    printf '%s\n' "${value:-/}"
 }
 
 get__web_access_group() {
@@ -160,6 +201,14 @@ run__apply_providers() {
     ynh_print_info "Provider configuration applied. Check the Providers tab for the result."
 }
 
+run__pair_remote() {
+    [ "${exposure:-}" = "opentunnel" ] || ynh_die "Switch to the OpenTunnel exposure before pairing."
+
+    ynh_script_progression "Creating an OpenTunnel pairing link..."
+    pair_opencode_remote
+    ynh_print_info "Pairing link created. It is shown in this tab and expires in 5 minutes."
+}
+
 run__rotate_service_password() {
     local password
     password=$(ynh_string_random --length=48)
@@ -168,6 +217,7 @@ run__rotate_service_password() {
     opencode_cli service set password "$password"
     ynh_app_setting_set --key=service_password --value="$password"
     service_password="$password"
+    clear_remote_pairing
 
     if [ "${exposure:-}" = "web" ]; then
         prepare_opencode_web_auth
@@ -182,8 +232,6 @@ run__rotate_service_password() {
 run__apply_remote_access() {
     apply_remote_access_mode \
         "${exposure:-}" \
-        "${domain:-}" \
-        "${path:-}" \
         "${web_access_group:-}" \
         "${vpn_bind_address:-}"
 }

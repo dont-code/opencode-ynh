@@ -112,8 +112,8 @@ help.fr = "Modifiez l'exposition d'OpenCode sans réinstaller l'application."
     [remote_access.settings]
     name.en = "Change exposure"
     name.fr = "Modifier l'exposition"
-    help.en = "Web uses the YunoHost reverse proxy and SSO. Proxy uses the encrypted OpenTunnel. VPN binds to a private address only."
-    help.fr = "Web utilise le proxy inverse et le SSO YunoHost. Proxy utilise OpenTunnel chiffré. VPN n'écoute que sur une adresse privée."
+    help.en = "Web uses the YunoHost reverse proxy and SSO. OpenTunnel uses OpenCode's end-to-end encrypted tunnel. VPN binds to a private address only. The domain and path are managed by YunoHost's standard app URL settings; web mode requires path '/'."
+    help.fr = "Web utilise le proxy inverse et le SSO YunoHost. OpenTunnel utilise le tunnel chiffré de bout en bout d'OpenCode. VPN n'écoute que sur une adresse privée. Le domaine et le chemin sont gérés par les paramètres d'URL standard de YunoHost ; le mode web exige le chemin '/'."
     optional = true
 
         [remote_access.settings.exposure]
@@ -121,24 +121,8 @@ help.fr = "Modifiez l'exposition d'OpenCode sans réinstaller l'application."
         ask.fr = "Mode d'exposition"
         type = "select"
         choices.web = "Web interface (YunoHost domain + SSO)"
-        choices.proxy = "Encrypted proxy (OpenTunnel)"
+        choices.opentunnel = "OpenTunnel (end-to-end encrypted)"
         choices.vpn = "Secure VPN / localhost only"
-        bind = "null"
-
-        [remote_access.settings.domain]
-        ask.en = "YunoHost domain (web mode)"
-        ask.fr = "Domaine YunoHost (mode web)"
-        type = "domain"
-        visible = "exposure == 'web'"
-        bind = "null"
-
-        [remote_access.settings.path]
-        ask.en = "Path (web mode)"
-        ask.fr = "Chemin (mode web)"
-        help.en = "Must be '/' in web mode: OpenCode requests its assets, API and service worker from the domain root. Use a dedicated domain for another web instance."
-        help.fr = "Doit être '/' en mode web : OpenCode demande ses ressources, son API et son service worker à la racine du domaine. Utilisez un domaine dédié pour une autre instance web."
-        type = "path"
-        visible = "exposure == 'web'"
         bind = "null"
 
         [remote_access.settings.web_access_group]
@@ -165,4 +149,24 @@ help.fr = "Modifiez l'exposition d'OpenCode sans réinstaller l'application."
         help.fr = "Redémarre OpenCode avec l'exposition choisie. Les liens d'appairage du mode précédent deviennent invalides."
         style = "success"
         enabled = "exposure"
+        bind = "null"
+
+        # Keep pairing controls in this section: YunoHost filters an action run
+        # to the button's section, so `visible` can only refer to `exposure`
+        # defined here.
+        [remote_access.settings.pair_remote]
+        type = "button"
+        ask.en = "Pair OpenTunnel"
+        ask.fr = "Appairer OpenTunnel"
+        help.en = "Run 'opencode pair --remote --yes' and display the link and QR code below. The link works once and expires in 5 minutes."
+        help.fr = "Exécute 'opencode pair --remote --yes' et affiche le lien et le code QR ci-dessous. Le lien ne fonctionne qu'une fois et expire après 5 minutes."
+        style = "info"
+        visible = "exposure == 'opentunnel'"
+        bind = "null"
+
+        [remote_access.settings.remote_pairing_result]
+        type = "markdown"
+        ask.en = "Pairing result"
+        ask.fr = "Résultat de l'appairage"
+        visible = "exposure == 'opentunnel'"
         bind = "null"

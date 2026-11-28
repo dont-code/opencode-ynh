@@ -6,14 +6,14 @@ Open https://__DOMAIN____PATH__ and sign in with a YunoHost account allowed
 by the `__APP__` permission. No pairing link is needed: the web UI is already
 connected to this server's local OpenCode service through the reverse proxy.
 
-### If you chose `proxy`
+### If you chose `opentunnel`
 
 The encrypted OpenTunnel address is:
 
 **__REMOTE_URL__**
 
-If it is empty, run `opencode pair --remote --yes` as the app user (see
-`ADMIN.md`) and copy the address from the link it prints.
+From the YunoHost config panel, use **Remote access → Pair OpenTunnel** to
+create a one-time link and QR code for the OpenCode app or another browser.
 
 ### If you chose `vpn`
 

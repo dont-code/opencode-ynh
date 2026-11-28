@@ -3,6 +3,8 @@
 source _common.sh
 source /usr/share/yunohost/helpers
 
+normalize_exposure
+
 ynh_script_progression "Upgrading OpenCode..."
 
 if [ "${exposure:-}" = "web" ] && [ "${path:-/}" != "/" ]; then
@@ -23,6 +25,7 @@ if [ "$exposure" = "web" ]; then
     ynh_config_add_nginx
 fi
 register_yunohost_service
+install_opencode_logo
 
 ynh_script_progression "Restarting OpenCode..."
 ynh_systemctl --service="$app" --action="start"

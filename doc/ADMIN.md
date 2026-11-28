@@ -13,22 +13,34 @@ The YunoHost webadmin tab **Apps → __APP__ → Config panel** has these action
   the generated config, then restarts OpenCode. Leaving the API key field empty
   keeps the key that is already stored. Selecting `none` clears it.
 - **Remote access → Apply remote access change** switches between `web`,
-  `proxy` and `vpn`, updates nginx/SSOwat or the private bind address, and
-  regenerates the OpenTunnel route when `proxy` is selected.
+  `opentunnel` and `vpn`, updates nginx/SSOwat or the private bind address, and
+  regenerates the OpenTunnel route when `opentunnel` is selected.
+- **Remote access → Pair OpenTunnel** runs `opencode pair --remote --yes` and
+  shows the one-time link, the stable tunnel address and a QR code in the
+  **Pairing result** field below the button (only shown in `opentunnel` mode).
 - **Security → Rotate service password** replaces the local OpenCode
   credential, refreshes the web proxy and restarts the service.
 
-In web mode the path must stay at `/`. OpenCode requests its assets (`/_assets/…`),
-API (`/api/…`) and service worker (`/sw.js`) from the domain root, so a subpath
-install loads the HTML but leaves the browser unable to fetch the JavaScript.
-Use a dedicated domain for each web instance.
+The domain and path are **not** asked again in the config panel. Use the
+standard YunoHost app URL settings (**Apps → __APP__ → Change URL**) for them.
+In web mode the path must stay at `/`. OpenCode requests its assets
+(`/_assets/…`), API (`/api/…`) and service worker (`/sw.js`) from the domain
+root, so a subpath install loads the HTML but leaves the browser unable to
+fetch the JavaScript. Use a dedicated domain for each web instance.
 
-Changing exposure invalidates existing pairing links. Pair again after the
-change. Both actions can also be called from the CLI, for example:
+Changing exposure invalidates existing pairing links. The exposure action can
+also be called from the CLI:
 
 ```bash
 sudo yunohost app action run __APP__ remote_access.settings.apply_remote_access \
-  --args "exposure=proxy"
+  --args "exposure=opentunnel"
+```
+
+After switching to `opentunnel`, create a fresh one-time link either with the
+config-panel button or from the CLI:
+
+```bash
+sudo yunohost app action run __APP__ remote_access.settings.pair_remote
 ```
 
 ## Useful commands
@@ -59,7 +71,7 @@ It writes a new OpenCode password, refreshes the credential injected by the web
 reverse proxy and restarts the service. Web users keep their YunoHost SSO
 session; clients paired through OpenTunnel or VPN must pair again.
 
-## Disable or re-enable the proxy
+## Disable or re-enable OpenTunnel
 
 Prefer the **Remote access** tab of the YunoHost config panel. From the CLI:
 

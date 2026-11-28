@@ -59,6 +59,123 @@ prepare_opencode_web_auth() {
     opencode_basic_auth=$(printf 'opencode:%s' "$password" | base64 -w0)
 }
 
+# Older releases called the OpenTunnel mode "proxy". Keep old installations
+# working while making OpenTunnel the name used everywhere.
+normalize_exposure() {
+    if [ "${exposure:-}" = "proxy" ]; then
+        exposure="opentunnel"
+        ynh_app_setting_set --key=exposure --value="$exposure"
+    fi
+}
+
+# Persistent copy of the upstream app icon, used for the YunoHost app tile.
+# Source: anomalyco/opencode v2.3.2 packages/ui/src/assets/favicon/web-app-manifest-192x192.png
+opencode_logo_path() {
+    printf '%s/.config/opencode/ynh-logo.png' "$data_dir"
+}
+
+# The icon shipped with the package. Restore scripts run from the backup's
+# settings/scripts directory, so accept a couple of relative layouts too.
+opencode_logo_source() {
+    local candidate
+    for candidate in "$PWD/assets/logo.png" "$PWD/../assets/logo.png" "$PWD/../../assets/logo.png"; do
+        if [ -f "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done
+    printf '%s\n' "$(opencode_logo_path)"
+}
+
+permission_has_logo() {
+    ynh_app_setting_get --key=_permissions 2>/dev/null | python3 -c '
+import sys, yaml
+try:
+    perms = yaml.safe_load(sys.stdin) or {}
+except Exception:
+    sys.exit(1)
+main = perms.get("main", {}) if isinstance(perms, dict) else {}
+sys.exit(0 if isinstance(main, dict) and main.get("logo_hash") else 1)
+'
+}
+
+# Install the OpenCode icon in YunoHost. A logo already chosen by the admin or
+# supplied by the app catalog is preserved.
+install_opencode_logo() {
+    local source target
+    source=$(opencode_logo_source)
+    target=$(opencode_logo_path)
+
+    ynh_permission_exists --permission=main || return 0
+    [ -f "$source" ] || return 0
+    mkdir -p "$(dirname "$target")"
+    if ! cmp -s "$source" "$target"; then
+        install -o "$app" -g "$app" -m 0644 "$source" "$target"
+    fi
+
+    if permission_has_logo; then
+        return 0
+    fi
+    yunohost user permission update "$app.main" --logo "$target"
+}
+
+clear_remote_pairing() {
+    ynh_app_setting_set --key=remote_pairing_url --value=""
+    ynh_app_setting_set --key=remote_pairing_qr --value=""
+    ynh_app_setting_set --key=remote_pairing_created_at --value=""
+    remote_pairing_url=""
+    remote_pairing_qr=""
+    remote_pairing_created_at=""
+}
+
+# Store everything the config panel needs to display after a pairing: the
+# stable tunnel URL, the one-time link and an SVG QR image. The QR payload is
+# the same JSON object OpenCode encodes itself.
+store_remote_pairing() {
+    local link="$1" code qr_payload qr_data
+
+    code="${link##*/}"
+    remote_url="${link%/auth/connect/*}"
+    remote_enabled=1
+    remote_pairing_url="$link"
+    remote_pairing_created_at="$(date +%s)"
+
+    ynh_app_setting_set --key=remote_enabled --value=1
+    ynh_app_setting_set --key=remote_url --value="$remote_url"
+    ynh_app_setting_set --key=remote_pairing_url --value="$remote_pairing_url"
+    ynh_app_setting_set --key=remote_pairing_created_at --value="$remote_pairing_created_at"
+
+    qr_payload=$(CODE="$code" URL="$remote_url" python3 -c '
+import json, os
+print(json.dumps({"code": os.environ["CODE"], "urls": [os.environ["URL"]]}, separators=(",", ":")))
+')
+    if command -v qrencode >/dev/null 2>&1; then
+        qr_data=$(printf '%s' "$qr_payload" | qrencode -t SVG -o - | base64 -w0)
+    else
+        qr_data=""
+    fi
+    ynh_app_setting_set --key=remote_pairing_qr --value="$qr_data"
+    remote_pairing_qr="$qr_data"
+}
+
+# Run OpenCode's remote pairing once and store the result for the config panel.
+pair_opencode_remote() {
+    local output link
+
+    output=$(mktemp)
+    if ! opencode_cli pair --remote --yes >"$output" 2>&1; then
+        cat "$output" >&2
+        rm -f "$output"
+        ynh_die "OpenTunnel pairing failed. Check the app logs and try again."
+    fi
+
+    link=$(grep -oE 'https://[^[:space:]]+/auth/connect/[^[:space:]]+' "$output" | head -1 || true)
+    rm -f "$output"
+    [ -n "$link" ] || ynh_die "OpenTunnel pairing succeeded but no link was found in its output."
+
+    store_remote_pairing "$link"
+}
+
 # Print the app id of an installed YunoHost Ollama app, if any.
 find_installed_ollama_app() {
     local apps_json
@@ -254,18 +371,18 @@ set_opencode_service_binding() {
 # previous service state before aborting.
 enable_remote_tunnel() {
     local required="${1:-0}"
-    local pair_file pair_url
+    local pair_file pair_link
 
-    ynh_script_progression "Enabling the encrypted OpenTunnel proxy (this can take a minute)..."
+    ynh_script_progression "Enabling the encrypted OpenTunnel (this can take a minute)..."
     pair_file=$(mktemp)
     if opencode_cli pair --remote --yes >"$pair_file" 2>&1; then
-        remote_enabled=1
-        ynh_app_setting_set --key=remote_enabled --value=1
-        # Keep the stable tunnel address, not the one-time pairing link.
-        pair_url=$(grep -oE 'https://[^[:space:]]+/auth/connect/' "$pair_file" | head -1 | sed 's#/auth/connect/$##' || true)
-        if [ -n "$pair_url" ]; then
-            remote_url="$pair_url"
-            ynh_app_setting_set --key=remote_url --value="$remote_url"
+        pair_link=$(grep -oE 'https://[^[:space:]]+/auth/connect/[^[:space:]]+' "$pair_file" | head -1 || true)
+        if [ -n "$pair_link" ]; then
+            # Store the stable tunnel address and the one-time link/QR together.
+            store_remote_pairing "$pair_link"
+        else
+            remote_enabled=1
+            ynh_app_setting_set --key=remote_enabled --value=1
         fi
     else
         cat "$pair_file" >&2
@@ -290,7 +407,7 @@ disable_remote_tunnel() {
 }
 
 # Persist the server settings in OpenCode's own service configuration and,
-# when requested, enable the OpenTunnel proxy.
+# when requested, enable the OpenTunnel tunnel.
 configure_opencode_service() {
     ynh_script_progression "Configuring the OpenCode service..."
 
@@ -307,6 +424,7 @@ configure_opencode_service() {
     ynh_app_setting_set --key=bind_address --value="$bind"
     ynh_app_setting_set --key=remote_url --value=""
     ynh_app_setting_set --key=remote_enabled --value=0
+    clear_remote_pairing
 
     # Custom settings are only reloaded as bash variables on the next script
     # run, so publish the values needed by helpers called later here too.
@@ -314,7 +432,7 @@ configure_opencode_service() {
     remote_url=""
     remote_enabled=0
 
-    if [ "${exposure:-}" = "proxy" ]; then
+    if [ "${exposure:-}" = "opentunnel" ]; then
         enable_remote_tunnel 0
     else
         disable_remote_tunnel
@@ -326,35 +444,37 @@ configure_opencode_service() {
 }
 
 # Change the exposure after install without rotating the service password.
-# Used by the YunoHost config panel action.
+# Domain and path stay owned by YunoHost's standard app URL settings; this
+# action only switches how OpenCode is exposed.
 apply_remote_access_mode() {
     local new_exposure="${1:-${exposure:-}}"
-    local new_domain="${2:-${domain:-}}"
-    local new_path="${3:-${path:-}}"
-    local new_group="${4:-${web_access_group:-}}"
-    local new_vpn_bind="${5:-${vpn_bind_address:-}}"
-
-    local old_domain old_path old_group old_vpn_bind
-    old_domain=$(ynh_app_setting_get --key=domain 2>/dev/null || true)
-    old_path=$(ynh_app_setting_get --key=path 2>/dev/null || true)
+    local new_group="${2:-${web_access_group:-}}"
+    local new_vpn_bind="${3:-${vpn_bind_address:-}}"
+    local old_group old_vpn_bind
     old_group=$(ynh_app_setting_get --key=web_access_group 2>/dev/null || true)
     old_vpn_bind=$(ynh_app_setting_get --key=vpn_bind_address 2>/dev/null || true)
 
     [ -n "$new_exposure" ] || new_exposure=$(ynh_app_setting_get --key=exposure 2>/dev/null || true)
     [ -n "$new_exposure" ] || new_exposure=web
+    # Accept the legacy value from cached config-panel forms and old scripts.
+    [ "$new_exposure" != "proxy" ] || new_exposure="opentunnel"
     case "$new_exposure" in
-        web|proxy|vpn) ;;
+        web|opentunnel|vpn) ;;
         *) ynh_die "Unknown exposure mode: $new_exposure" ;;
     esac
 
-    [ -n "$new_domain" ] || new_domain="$old_domain"
-    [ -n "$new_path" ] || new_path="${old_path:-/}"
     [ -n "$new_group" ] || new_group="${old_group:-all_users}"
     [ -n "$new_vpn_bind" ] || new_vpn_bind="$old_vpn_bind"
+
+    # Read the URL from app settings (updated by YunoHost's change-url script),
+    # never from the config panel.
+    local new_domain="${domain:-$(ynh_app_setting_get --key=domain 2>/dev/null || true)}"
+    local new_path="${path:-$(ynh_app_setting_get --key=path 2>/dev/null || true)}"
+    [ -n "$new_path" ] || new_path="/"
     [[ "$new_path" == /* ]] || new_path="/$new_path"
 
     if [ "$new_exposure" = "web" ]; then
-        [ -n "$new_domain" ] || ynh_die "A YunoHost domain is required in web mode."
+        [ -n "$new_domain" ] || ynh_die "No YunoHost domain is set for this app. Use Apps → $app → Change URL first."
         validate_web_path "$new_path"
     fi
 
@@ -374,7 +494,7 @@ apply_remote_access_mode() {
     ynh_systemctl --service="$app" --action="stop" || true
 
     set_opencode_service_binding "$bind" "$password"
-    if [ "$new_exposure" = "proxy" ]; then
+    if [ "$new_exposure" = "opentunnel" ]; then
         if ! enable_remote_tunnel 1; then
             # Keep the previous systemd configuration running on failure.
             disable_remote_tunnel
@@ -391,8 +511,6 @@ apply_remote_access_mode() {
     opencode_cli service stop >/dev/null 2>&1 || true
 
     ynh_app_setting_set --key=exposure --value="$new_exposure"
-    ynh_app_setting_set --key=domain --value="$new_domain"
-    ynh_app_setting_set --key=path --value="$new_path"
     ynh_app_setting_set --key=web_access_group --value="$new_group"
     ynh_app_setting_set --key=vpn_bind_address --value="$new_vpn_bind"
     ynh_app_setting_set --key=bind_address --value="$bind"
@@ -406,26 +524,17 @@ apply_remote_access_mode() {
 
     install_system_unit
 
-    if [ "$new_exposure" = "web" ] && [ -n "$old_domain" ] && [ "$old_domain" != "$new_domain" ]; then
-        # Drop the nginx config from the previous domain before creating the new one.
-        local previous_domain="${domain:-}"
-        domain="$old_domain"
-        ynh_config_remove_nginx
-        domain="$previous_domain"
-    fi
-
     if [ "$new_exposure" = "web" ]; then
         prepare_opencode_web_auth
         ynh_config_add_nginx
-        if ynh_permission_exists --permission=main; then
-            ynh_permission_delete --permission=main
-        fi
+        # `main` always exists; permission_create updates it in place.
         ynh_permission_create --permission=main --url="$new_path" --allowed="$new_group" --auth_header=false
+        install_opencode_logo
     else
         ynh_config_remove_nginx
-        if ynh_permission_exists --permission=main; then
-            ynh_permission_delete --permission=main
-        fi
+        # YunoHost forbids deleting `main`; clear its URLs and hide its tile.
+        ynh_permission_url --permission=main --clear_urls
+        [ "$new_exposure" = "opentunnel" ] || clear_remote_pairing
     fi
 
     ynh_systemctl --service="$app" --action="start"
@@ -464,7 +573,7 @@ wait_for_opencode_api() {
 
 # Store the public OpenTunnel URL so the admin can find it after install.
 register_remote_url() {
-    [ "${exposure:-}" = "proxy" ] || return 0
+    [ "${exposure:-}" = "opentunnel" ] || return 0
     [ "${remote_enabled:-0}" = "1" ] || return 0
 
     service_password=${service_password:-$(ynh_app_setting_get --key=service_password)}
@@ -474,7 +583,7 @@ register_remote_url() {
     ynh_script_progression "Retrieving the OpenTunnel address..."
 
     if ! wait_for_opencode_api; then
-        [ -n "${remote_url:-}" ] || ynh_print_warn "OpenCode API did not become ready in time; the proxy URL could not be recorded."
+        [ -n "${remote_url:-}" ] || ynh_print_warn "OpenCode API did not become ready in time; the OpenTunnel URL could not be recorded."
         return 0
     fi
 

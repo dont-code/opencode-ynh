@@ -4,7 +4,7 @@ packaging_format = 2
 id = "opencode"
 name = "OpenCode"
 description.en = "Self-host the OpenCode AI coding agent with web, encrypted tunnel or VPN access, and optional local Ollama."
-version = "2.3.2~ynh6"
+version = "2.3.2~ynh11"
 maintainers = ["papou"]
 
 [upstream]
@@ -30,16 +30,16 @@ ram.runtime = "600M"
     type = "domain"
 
     [install.path]
-    help.en = "Web mode requires the domain root because OpenCode serves its assets, API and service worker from '/'. Keep '/' and use another domain for a second web instance. This setting is ignored in proxy and VPN modes."
+    help.en = "Web mode requires the domain root because OpenCode serves its assets, API and service worker from '/'. Keep '/' and use another domain for a second web instance. This setting is ignored in OpenTunnel and VPN modes."
     type = "path"
     default = "/"
 
     [install.exposure]
     ask.en = "How should OpenCode be reachable?"
-    help.en = "Web uses the YunoHost nginx reverse proxy and SSO. Proxy uses OpenCode's end-to-end encrypted OpenTunnel. VPN keeps the service bound to a private address only."
+    help.en = "Web uses the YunoHost nginx reverse proxy and SSO. OpenTunnel uses OpenCode's end-to-end encrypted tunnel. VPN keeps the service bound to a private address only."
     type = "select"
     choices.web = "Web interface (YunoHost domain + SSO)"
-    choices.proxy = "Encrypted proxy (OpenTunnel)"
+    choices.opentunnel = "OpenTunnel (end-to-end encrypted)"
     choices.vpn = "Secure VPN / localhost only"
     default = "web"
 
@@ -73,7 +73,7 @@ ram.runtime = "600M"
 
 [resources]
     [resources.apt]
-    packages = ["curl", "ca-certificates", "tar"]
+    packages = ["curl", "ca-certificates", "tar", "qrencode"]
 
     [resources.system_user]
     home = "/home/yunohost.app/__APP__"

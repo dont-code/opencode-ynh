@@ -4,6 +4,8 @@
 source ../settings/scripts/_common.sh
 source /usr/share/yunohost/helpers
 
+normalize_exposure
+
 ynh_script_progression "Restoring OpenCode data..."
 ynh_systemctl --service="$app" --action="stop" || true
 
@@ -27,9 +29,13 @@ fi
 # current package version and saved settings.
 install_system_unit
 if [ "$exposure" = "web" ]; then
+    prepare_opencode_web_auth
     ynh_config_add_nginx
     ynh_permission_create --permission=main --url=/ --allowed="$web_access_group" --auth_header=false \
         || ynh_permission_update --permission=main --add="$web_access_group"
+fi
+if ynh_permission_exists --permission=main; then
+    install_opencode_logo
 fi
 register_yunohost_service
 

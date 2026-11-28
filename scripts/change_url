@@ -3,6 +3,8 @@
 source _common.sh
 source /usr/share/yunohost/helpers
 
+normalize_exposure
+
 # The URL only matters for the "web" exposure. Other modes keep the service
 # bound to a private address and are unaffected by a domain/path change.
 if [ "${exposure:-}" = "web" ]; then

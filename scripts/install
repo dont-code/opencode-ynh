@@ -3,6 +3,8 @@
 source _common.sh
 source /usr/share/yunohost/helpers
 
+normalize_exposure
+
 if [ "$exposure" = "web" ]; then
     validate_web_path "$path"
 fi
@@ -23,6 +25,7 @@ if [ "$exposure" = "web" ]; then
     prepare_opencode_web_auth
     ynh_config_add_nginx
     ynh_permission_create --permission=main --url="$path" --allowed="$web_access_group" --auth_header=false
+    install_opencode_logo
 fi
 
 ynh_script_progression "Starting OpenCode..."
