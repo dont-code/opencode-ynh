@@ -6,9 +6,11 @@ source /usr/share/yunohost/helpers
 # The URL only matters for the "web" exposure. Other modes keep the service
 # bound to a private address and are unaffected by a domain/path change.
 if [ "${exposure:-}" = "web" ]; then
+    validate_web_path "$path"
     ynh_script_progression "Updating the OpenCode URL..."
+    prepare_opencode_web_auth
     ynh_config_change_url_nginx
-    ynh_permission_url --permission=main --url=/
+    ynh_permission_url --permission=main --url="$path"
 fi
 
 ynh_script_progression "URL change for $app completed"

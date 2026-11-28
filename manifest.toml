@@ -4,7 +4,7 @@ packaging_format = 2
 id = "opencode"
 name = "OpenCode"
 description.en = "Self-host the OpenCode AI coding agent with web, encrypted tunnel or VPN access, and optional local Ollama."
-version = "2.3.2~ynh4"
+version = "2.3.2~ynh6"
 maintainers = ["papou"]
 
 [upstream]
@@ -30,6 +30,7 @@ ram.runtime = "600M"
     type = "domain"
 
     [install.path]
+    help.en = "Web mode requires the domain root because OpenCode serves its assets, API and service worker from '/'. Keep '/' and use another domain for a second web instance. This setting is ignored in proxy and VPN modes."
     type = "path"
     default = "/"
 

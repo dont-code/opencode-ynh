@@ -4,6 +4,12 @@ source _common.sh
 source /usr/share/yunohost/helpers
 
 ynh_script_progression "Upgrading OpenCode..."
+
+if [ "${exposure:-}" = "web" ] && [ "${path:-/}" != "/" ]; then
+    ynh_print_warn \
+        "OpenCode web mode is installed at '${path}'. The web UI needs the domain root; change the app URL to '/' (or use a dedicated domain) to fix blank pages and failing asset requests."
+fi
+
 ynh_app_setting_set --key=vpn_bind_address --value="${vpn_bind_address:-}"
 ynh_systemctl --service="$app" --action="stop" || true
 
@@ -13,6 +19,7 @@ configure_opencode_providers "${external_provider:-}" "${external_api_key:-}"
 
 ynh_config_add_systemd
 if [ "$exposure" = "web" ]; then
+    prepare_opencode_web_auth
     ynh_config_add_nginx
 fi
 register_yunohost_service

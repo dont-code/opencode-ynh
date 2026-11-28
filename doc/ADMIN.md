@@ -15,6 +15,13 @@ The YunoHost webadmin tab **Apps → __APP__ → Config panel** has these action
 - **Remote access → Apply remote access change** switches between `web`,
   `proxy` and `vpn`, updates nginx/SSOwat or the private bind address, and
   regenerates the OpenTunnel route when `proxy` is selected.
+- **Security → Rotate service password** replaces the local OpenCode
+  credential, refreshes the web proxy and restarts the service.
+
+In web mode the path must stay at `/`. OpenCode requests its assets (`/_assets/…`),
+API (`/api/…`) and service worker (`/sw.js`) from the domain root, so a subpath
+install loads the HTML but leaves the browser unable to fetch the JavaScript.
+Use a dedicated domain for each web instance.
 
 Changing exposure invalidates existing pairing links. Pair again after the
 change. Both actions can also be called from the CLI, for example:
@@ -42,22 +49,15 @@ Replace `service status` with any OpenCode subcommand (`pair`, `service get`,
 
 ## Rotate the password
 
+Use the **Security → Rotate service password** action in the config panel:
+
 ```bash
-NEW_PASSWORD=$(openssl rand -hex 24)
-sudo -u __APP__ env HOME=__DATA_DIR__ \
-  XDG_CONFIG_HOME=__DATA_DIR__/.config \
-  XDG_DATA_HOME=__DATA_DIR__/.local/share \
-  XDG_STATE_HOME=__DATA_DIR__/.local/state \
-  __DATA_DIR__/.opencode/bin/opencode service set password "$NEW_PASSWORD"
-sudo -u __APP__ env HOME=__DATA_DIR__ \
-  XDG_CONFIG_HOME=__DATA_DIR__/.config \
-  XDG_DATA_HOME=__DATA_DIR__/.local/share \
-  XDG_STATE_HOME=__DATA_DIR__/.local/state \
-  __DATA_DIR__/.opencode/bin/opencode service start
-sudo yunohost app setting __APP__ service_password -v "$NEW_PASSWORD"
+sudo yunohost app action run __APP__ security.actions.rotate_service_password
 ```
 
-Changing the password signs out every paired browser.
+It writes a new OpenCode password, refreshes the credential injected by the web
+reverse proxy and restarts the service. Web users keep their YunoHost SSO
+session; clients paired through OpenTunnel or VPN must pair again.
 
 ## Disable or re-enable the proxy
 

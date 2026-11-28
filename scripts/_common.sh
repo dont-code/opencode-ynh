@@ -30,6 +30,35 @@ external_provider_label() {
     esac
 }
 
+# OpenCode's web UI requests its assets, API and service worker from the
+# origin root (/_assets/..., /api/..., /sw.js). A YunoHost subpath therefore
+# cannot work: those root requests miss the app location and are caught by
+# SSOwat instead of OpenCode. Web instances must be installed at "/".
+validate_web_path() {
+    local value="${1:-${path:-/}}"
+
+    [ "$value" = "/" ] || ynh_die \
+        "OpenCode web mode requires the path '/' because the web UI serves its assets, API and service worker from the domain root. Use '/' on this domain, or install the web instance on a dedicated domain."
+}
+
+# Compute the Basic auth header nginx injects into proxied requests. This lets
+# the web UI talk to its own local server without an interactive pairing link:
+# YunoHost SSO remains the only login the browser sees.
+prepare_opencode_web_auth() {
+    local password="${service_password:-}"
+
+    if [ -z "$password" ]; then
+        password=$(opencode_cli service get password 2>/dev/null || true)
+    fi
+    if [ -z "$password" ]; then
+        password=$(ynh_app_setting_get --key=service_password 2>/dev/null || true)
+    fi
+    [ -n "$password" ] || ynh_die "The OpenCode service password is missing; cannot configure web authentication."
+
+    service_password="$password"
+    opencode_basic_auth=$(printf 'opencode:%s' "$password" | base64 -w0)
+}
+
 # Print the app id of an installed YunoHost Ollama app, if any.
 find_installed_ollama_app() {
     local apps_json
@@ -326,6 +355,7 @@ apply_remote_access_mode() {
 
     if [ "$new_exposure" = "web" ]; then
         [ -n "$new_domain" ] || ynh_die "A YunoHost domain is required in web mode."
+        validate_web_path "$new_path"
     fi
 
     local bind="127.0.0.1"
@@ -385,11 +415,12 @@ apply_remote_access_mode() {
     fi
 
     if [ "$new_exposure" = "web" ]; then
+        prepare_opencode_web_auth
         ynh_config_add_nginx
         if ynh_permission_exists --permission=main; then
             ynh_permission_delete --permission=main
         fi
-        ynh_permission_create --permission=main --url=/ --allowed="$new_group" --auth_header=false
+        ynh_permission_create --permission=main --url="$new_path" --allowed="$new_group" --auth_header=false
     else
         ynh_config_remove_nginx
         if ynh_permission_exists --permission=main; then

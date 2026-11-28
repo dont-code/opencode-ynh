@@ -3,6 +3,10 @@
 source _common.sh
 source /usr/share/yunohost/helpers
 
+if [ "$exposure" = "web" ]; then
+    validate_web_path "$path"
+fi
+
 ynh_app_setting_set --key=installer_url --value="$OPENCODE_INSTALL_URL"
 # Make every config-panel value readable on the first run, even when the admin
 # left an optional answer empty.
@@ -16,8 +20,9 @@ register_yunohost_service
 
 if [ "$exposure" = "web" ]; then
     ynh_script_progression "Configuring the nginx reverse proxy..."
+    prepare_opencode_web_auth
     ynh_config_add_nginx
-    ynh_permission_create --permission=main --url=/ --allowed="$web_access_group" --auth_header=false
+    ynh_permission_create --permission=main --url="$path" --allowed="$web_access_group" --auth_header=false
 fi
 
 ynh_script_progression "Starting OpenCode..."

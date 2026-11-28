@@ -15,7 +15,7 @@ change the external provider/key and switch the exposure mode between `web`,
 
 | Mode | What it does |
 | --- | --- |
-| `web` | Nginx reverse proxy on the chosen YunoHost domain/path, protected by the YunoHost SSO permission. |
+| `web` | Nginx reverse proxy at the root of the chosen YunoHost domain, protected by YunoHost SSO and automatically connected to the local server (no pairing link). |
 | `proxy` | OpenCode's built-in end-to-end encrypted **OpenTunnel** address. No YunoHost nginx exposure. |
 | `vpn` | Service bound to a private address only (127.0.0.1 by default, or a VPN IP you provide). No nginx exposure. |
 
@@ -35,7 +35,7 @@ sudo yunohost app install /home/papou/devs/opencode-ynh
 
 Answer the install questions:
 
-- domain and path (used only in `web` mode; a dedicated domain at `/` is recommended),
+- domain (used only in `web` mode); keep the path at `/` because the web UI serves assets and API requests from the domain root. Use a dedicated domain for each web instance,
 - `exposure`: `web`, `proxy` or `vpn`,
 - `web_access_group`: YunoHost group allowed to open the web UI (web mode only),
 - `vpn_bind_address`: optional VPN IP of the server (vpn mode only),

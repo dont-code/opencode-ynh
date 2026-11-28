@@ -70,6 +70,26 @@ help.fr = "Consultez et actualisez les fournisseurs de modèles générés pour 
         enabled = "external_provider"
         bind = "null"
 
+[security]
+name.en = "Security"
+name.fr = "Sécurité"
+help.en = "Rotate the credential used by the local web UI."
+help.fr = "Renouveler l'identifiant utilisé par l'interface web locale."
+
+    [security.actions]
+    name.en = "Service credential"
+    name.fr = "Identifiant du service"
+    optional = true
+
+        [security.actions.rotate_service_password]
+        type = "button"
+        ask.en = "Rotate service password"
+        ask.fr = "Renouveler le mot de passe du service"
+        help.en = "Generate a new OpenCode password, refresh the web proxy and restart the service. Paired clients are signed out; web users keep using YunoHost SSO."
+        help.fr = "Génère un nouveau mot de passe OpenCode, actualise le proxy web et redémarre le service. Les clients appairés sont déconnectés ; les utilisateurs web continuent à utiliser le SSO YunoHost."
+        style = "danger"
+        bind = "null"
+
 [remote_access]
 name.en = "Remote access"
 name.fr = "Accès distant"
@@ -115,6 +135,8 @@ help.fr = "Modifiez l'exposition d'OpenCode sans réinstaller l'application."
         [remote_access.settings.path]
         ask.en = "Path (web mode)"
         ask.fr = "Chemin (mode web)"
+        help.en = "Must be '/' in web mode: OpenCode requests its assets, API and service worker from the domain root. Use a dedicated domain for another web instance."
+        help.fr = "Doit être '/' en mode web : OpenCode demande ses ressources, son API et son service worker à la racine du domaine. Utilisez un domaine dédié pour une autre instance web."
         type = "path"
         visible = "exposure == 'web'"
         bind = "null"
